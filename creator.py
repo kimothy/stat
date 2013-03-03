@@ -11,8 +11,8 @@ Max = 60.0					# maximum answer time
 Msd = 7.0					# mime standard deviation
 Mav = 15.0					# mime avrage answer time
 Dsd = 15.0					# draw standard deviation
-Dav = 30.0					# draw avrage answer time
-Bias = 0.3					# bias. mime vs. draw
+Dav = 50.0					# draw avrage answer time
+Bias = 0.25					# bias. mime vs. draw
 Mean = Max / 2				# default mean value
 Deviation = Max / 4			# default deviation value
 data_file = "rawdata.csv"	# default name for data file
@@ -80,11 +80,11 @@ def time(method, Bias):
 	if method == Methods[0]:
 		Mean = Mav
 		Deviation = Msd
-		Biaz = Bias * 0.5
+		Biaz = (1-Bias) * 0.5
 	elif method == Methods[1]:
 		Mean = Dav
 		Deviation = Dsd
-		Biaz = (1 - Bias) * 0.5
+		Biaz = Bias * 0.5
 	else:
 		print "Time() error: Cant recognize method; ",method
 		Mean = Max / 2
@@ -93,10 +93,10 @@ def time(method, Bias):
 	
 	chance = rdm.random()	
 	if chance > Biaz:
-		if chance <= 0.5 and chance >= 0:
+		if chance <= 0.65 and chance >= 0:
 			return rdm.normalvariate(Mean,Deviation)
-		elif chance > 0.5 and chance <= 1:
-			return rdm.uniform(Min,Max+20)
+		elif chance > 0.35 and chance <= 1:
+			return rdm.uniform(Min,Max-10)
 		else:
 			print "Time() error: chance error; ",chance
 			return Max / 2
@@ -125,13 +125,13 @@ data = csv.writer(data_file)
 data.writerow(["Method","Category","Difficulty","Time"])
 
 n = 0
-while n < Cards:
+while n <= Cards:
 	for category in Categories:
 		for method in Methods:
 			n += 1
-			if n < Cards:
+			if n <= Cards:
 				t = time(method, Bias)
 				if t < 0 or t > Max:
 					t = 0
 				d = difficulty(t)
-				data.writerow([method,category,d,t])
+				data.writerow([method,category,d,float(t)])
