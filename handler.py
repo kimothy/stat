@@ -2,6 +2,7 @@
 import csv
 from optparse import OptionParser
 import sys
+from pylab import *
 
 """ Default Values """
 tics = 10.0
@@ -85,7 +86,7 @@ def methodStats(method):
 		data = csv.reader(data_file)
 		for item in data:
 			try:
-				if float(item[3]) > float(n) and float(item[3]) < float(m) and (item[0] == method or "both" == method):
+				if float(item[3]) != 0 and float(item[3]) >= float(n) and float(item[3]) < float(m) and (item[0] == method or "both" == method):
 					x += 1
 			except:
 				if item[3] != "Time":
@@ -93,6 +94,23 @@ def methodStats(method):
 		y += x
 		save.writerow([int(n),int(m),x])
 	print "%s answerd successfully %d times" %(method.upper(),y)
+
+def methodArrays(method):
+	dataArray = []
+	for bound in Bounderies:
+		data_file = open(file_name,"r")
+		data = csv.reader(data_file)
+		x = 0
+		for item in data:
+			try:
+				if float(item[3]) != 0 and float(item[3]) >= float(bound)-float(tics) and float(item[3]) < float(bound) and (item[0] == method or "both" == method):
+					y = float(item[3]) >= float(bound)-float(tics) and float(item[3])
+					x += 1
+			except:
+				if item[3] != "Time":
+					print "methodArrays() ERROR: could not convert to float;",item[3]
+		dataArray.append(x)
+	return dataArray
 
 """ Main Program """
 data_file = open(file_name,"r")
@@ -110,6 +128,13 @@ if options.task == "method":
 	methodStats("both")
 	methodStats("mime")
 	methodStats("draw")
+	if options.plot == "True":
+		both = methodArrays("both")
+		mime = methodArrays("mime")
+		draw = methodArrays("draw")
+		plot(Bounderies,both,Bounderies,mime,Bounderies,draw)
+		show()
+
 	
 				
 				
