@@ -3,6 +3,8 @@ import csv
 from optparse import OptionParser
 import sys
 from pylab import *
+from pandas import *
+import matplotlib.pyplot as plt
 
 """ Default Values """
 tics = 10.0
@@ -72,30 +74,9 @@ def maxValue():
 			print "ERROR: Faild to read file;", file_name
 	print "Maximum value:",X
 	return X
-	
-def methodStats(method):
-	save.writerow(["methodStats",method])
-	n = 0
-	m = 0
-	y = 0
-	while m < Max:
-		x = 0
-		n = m
-		m += tics
-		data_file = open(file_name,"r")
-		data = csv.reader(data_file)
-		for item in data:
-			try:
-				if float(item[3]) != 0 and float(item[3]) >= float(n) and float(item[3]) < float(m) and (item[0] == method or "both" == method):
-					x += 1
-			except:
-				if item[3] != "Time":
-					print "methodStats() ERROR: could not convert to float;",item[3]
-		y += x
-		save.writerow([int(n),int(m),x])
-	print "%s answerd successfully %d times" %(method.upper(),y)
 
 def methodArrays(method):
+	save.writerow(["methodStats",method])
 	dataArray = []
 	for bound in Bounderies:
 		data_file = open(file_name,"r")
@@ -110,6 +91,7 @@ def methodArrays(method):
 				if item[3] != "Time":
 					print "methodArrays() ERROR: could not convert to float;",item[3]
 		dataArray.append(x)
+		save.writerow([int(bound)-int(tics),int(tics),x])
 	return dataArray
 
 """ Main Program """
@@ -125,18 +107,16 @@ save = csv.writer(savefile)
 if options.task == "method":
 	Max = maxValue()
 	bounderies()
-	methodStats("both")
-	methodStats("mime")
-	methodStats("draw")
+	both = methodArrays("both")
+	mime = methodArrays("mime")
+	draw = methodArrays("draw")
 	if options.plot == "True":
-		both = methodArrays("both")
-		mime = methodArrays("mime")
-		draw = methodArrays("draw")
-		plot(Bounderies,both,Bounderies,mime,Bounderies,draw)
-		show()
-
-	
-				
+		plt.plot(Bounderies,both,Bounderies,mime,Bounderies,draw)
+		plt.show()
+		
+test_data = read_csv("method_output.cvs", na_values=[" "])
+print test_data  
+			
 				
 				
 	
