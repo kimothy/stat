@@ -3,7 +3,6 @@ import csv
 from optparse import OptionParser
 import sys
 from pylab import *
-from pandas import *
 import matplotlib.pyplot as plt
 
 """ Default Values """
@@ -12,6 +11,9 @@ method = ["mime","draw"]
 file_name = "rawdata.csv"	# default name for data file
 Max = 0
 Bounderies = []
+drawValues = []
+mimeValues = []
+bothValues = []
 
 """ Option Parser """
 parser = OptionParser()
@@ -75,24 +77,26 @@ def maxValue():
 	print "Maximum value:",X
 	return X
 
-def methodArrays(method):
-	save.writerow(["methodStats",method])
+def methodArrays():
+	save.writerow(["group","both","mime","draw"])
 	dataArray = []
 	for bound in Bounderies:
 		data_file = open(file_name,"r")
 		data = csv.reader(data_file)
-		x = 0
+		x = [0,0]
 		for item in data:
 			try:
-				if float(item[3]) != 0 and float(item[3]) >= float(bound)-float(tics) and float(item[3]) < float(bound) and (item[0] == method or "both" == method):
-					y = float(item[3]) >= float(bound)-float(tics) and float(item[3])
-					x += 1
+				if float(item[3]) != 0 and float(item[3]) >= float(bound)-float(tics) and float(item[3]) < float(bound) and (item[0] == "mime"):
+					x[0] += 1
+				elif float(item[3]) != 0 and float(item[3]) >= float(bound)-float(tics) and float(item[3]) < float(bound) and (item[0] == "draw"):
+					x[1] +=1
 			except:
 				if item[3] != "Time":
 					print "methodArrays() ERROR: could not convert to float;",item[3]
-		dataArray.append(x)
-		save.writerow([int(bound)-int(tics),int(tics),x])
-	return dataArray
+		drawValues.append(x[0])
+		mimeValues.append(x[1])
+		bothValues.append(x[0]+x[1])
+		save.writerow([int(bound),x[0]+x[1],x[0],x[1]])
 
 """ Main Program """
 data_file = open(file_name,"r")
@@ -107,15 +111,14 @@ save = csv.writer(savefile)
 if options.task == "method":
 	Max = maxValue()
 	bounderies()
-	both = methodArrays("both")
-	mime = methodArrays("mime")
-	draw = methodArrays("draw")
+	dataArray = methodArrays()
 	if options.plot == "True":
-		plt.plot(Bounderies,both,Bounderies,mime,Bounderies,draw)
+		print "Combined",bothValues
+		print "Mime Values",mimeValues
+		print "Draw Values",drawValues
+		plt.plot(Bounderies,bothValues,Bounderies,mimeValues,Bounderies,drawValues)
 		plt.show()
 		
-test_data = read_csv("method_output.cvs", na_values=[" "])
-print test_data  
 			
 				
 				
