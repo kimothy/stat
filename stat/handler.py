@@ -1,27 +1,167 @@
-#! /usr/bin/python3
-from optparse import OptionParser
+#! /usr/bin/env python
+import pygtk
+import gtk
+import gobject
+
+import time
+
 import csv
-from math import *
-from pylab import *
+
 import numpy as np
 from scipy.stats import norm
-from matplotlib import rc
+from pylab import *
 
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
+
+from optparse import OptionParser
 parser = OptionParser()
-parser.add_option("-p","--plot", action="store_true",dest="plot_flag",default="False")
 parser.add_option("-i","--input",action="store",type="string",dest="input_file",default="rawdata.csv")
-parser.add_option("-o","--output",action="store",type="string",dest="output_file",default="output.csv")
-parser.add_option("-w","--write",action="store_false",dest="write",default="True")
-parser.add_option("-t","--tics",action="store",type="int",dest="tics",default=10)
-parser.add_option("-l","--low",action="store",type="float",dest="min",default=0.0)
-parser.add_option("-s","--summary",action="store_true",dest="summary",default="False")
-parser.add_option("-u","--sort",action="store_true",dest="sort",default="False")
-parser.add_option("-f","--tex",action="store_true",dest="tex",default="False")
-parser.add_option("-c","--ci",action="store",type="float",dest="ci",default=0.80)
-
 (options, args) = parser.parse_args()
 
-class approach:
+class Base:
+	""" main GTK window and manipulating functions """
+	def destroy(self,widget, data = None):
+		print "terminated" 
+		gtk.main_quit()
+		
+	def set_avgDraw(self,slider_info):
+		""" Offset for average draw value"""
+		self.avgDraw = slider_info.get_value()
+		make_plot()
+		
+	def set_avgMime(self,slider_info):
+		""" Offset for draw standard distribution"""
+		self.avgMime = slider_info.get_value()
+		make_plot()
+		
+	def set_sdDraw(self,slider_info):
+		""" Offset for draw standard distribution"""
+		self.sdDraw = slider_info.get_value()
+		make_plot()
+		
+	def set_sdMime(self,slider_info):
+		""" Offset for draw standard distribution"""
+		self.sdMime = slider_info.get_value()
+		make_plot()
+		
+	def reset_adjustments(self,x):
+		self.avgDraw = 0
+		self.avgMime = 0
+		self.sdDraw = 0
+		self.sdMime = 0
+		self.mslider1.set_adjustment(gtk.Adjustment(value=0, lower=-20, upper=20, step_incr=1, page_incr=0, page_size=0))
+		self.mslider2.set_adjustment(gtk.Adjustment(value=0, lower=-5, upper=5, step_incr=1, page_incr=0, page_size=0))
+		self.mslider3.set_adjustment(gtk.Adjustment(value=0, lower=-20, upper=20, step_incr=1, page_incr=0, page_size=0))
+		self.mslider4.set_adjustment(gtk.Adjustment(value=0, lower=-5, upper=5, step_incr=1, page_incr=0, page_size=0))
+		make_plot()
+
+		
+	def __init__(self):
+		self.avgDraw = 0
+		self.avgMime = 0
+		self.sdDraw = 0
+		self.sdMime = 0
+		
+		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+		self.window.set_position(gtk.WIN_POS_CENTER)
+		self.window.set_size_request(1000,600)
+		self.window.set_title("MA-155 STAT")
+			
+		self.mslider1 = gtk.HScale(adjustment=gtk.Adjustment(value=0, lower=-20, upper=20, step_incr=0.1, page_incr=0, page_size=0))
+		self.mslider1.connect("value_changed",self.set_avgDraw)
+		self.mslider2 = gtk.HScale(adjustment=gtk.Adjustment(value=0, lower=-5, upper=5, step_incr=0.1, page_incr=0, page_size=0))
+		self.mslider2.connect("value_changed",self.set_sdDraw)
+		self.mslider3 = gtk.HScale(adjustment=gtk.Adjustment(value=0, lower=-20, upper=20, step_incr=0.1, page_incr=0, page_size=0))
+		self.mslider3.connect("value_changed",self.set_avgMime)
+		self.mslider4 = gtk.HScale(adjustment=gtk.Adjustment(value=0, lower=-5, upper=5, step_incr=0.1, page_incr=0, page_size=0))
+		self.mslider4.connect("value_changed",self.set_sdMime)
+		
+		self.draw_tools = gtk.Table(rows = 4, columns = 2, homogeneous = False)
+		self.draw_tools.attach(gtk.Label("Average"),0,2,0,1)
+		self.draw_tools.attach(self.mslider1,0,2,1,2)
+		
+		self.draw_tools.attach(gtk.Label("Distribution"),0,2,2,3)
+		self.draw_tools.attach(self.mslider2,0,2,3,4)
+		
+		self.draw_adj_frame = gtk.Frame(label = "Adjustments")
+		self.draw_adj_frame.add(self.draw_tools)
+		
+		
+		self.draw_table = gtk.Table(rows=8, columns=2, homogeneous=False)
+		self.draw_table.attach(gtk.Label("Average: "),0,1,0,1)
+		self.draw_table.attach(gtk.Label(draw.average),1,2,0,1)
+		
+		self.draw_table.attach(gtk.Label("Median: "),0,1,1,2)
+		self.draw_table.attach(gtk.Label(draw.median),1,2,1,2)
+		
+		self.draw_table.attach(gtk.Label("SD: "),0,1,2,3)
+		self.draw_table.attach(gtk.Label(draw.sd),1,2,2,3)
+		
+		self.draw_table.attach(self.draw_adj_frame,0,2,3,4)
+		
+		self.mime_tools = gtk.Table(rows = 4, columns = 2, homogeneous = False)
+		self.mime_tools.attach(gtk.Label("Average"),0,2,0,1)
+		self.mime_tools.attach(self.mslider3,0,2,1,2)
+		
+		self.mime_tools.attach(gtk.Label("Distribution"),0,2,2,3)
+		self.mime_tools.attach(self.mslider4,0,2,3,4)
+		
+		self.mime_adj_frame = gtk.Frame(label = "Adjustments")
+		self.mime_adj_frame.add(self.mime_tools)
+		
+		
+		self.mime_table = gtk.Table(rows=8, columns=2, homogeneous=False)
+		self.mime_table.attach(gtk.Label("Average: "),0,1,0,1)
+		self.mime_table.attach(gtk.Label(mime.average),1,2,0,1)
+		
+		self.mime_table.attach(gtk.Label("Median: "),0,1,1,2)
+		self.mime_table.attach(gtk.Label(mime.median),1,2,1,2)
+		
+		self.mime_table.attach(gtk.Label("SD: "),0,1,2,3)
+		self.mime_table.attach(gtk.Label(mime.sd),1,2,2,3)
+		
+		self.mime_table.attach(self.mime_adj_frame,0,2,3,4)
+		
+		
+		self.reset = gtk.Button("reset")
+		self.reset.connect("clicked",self.reset_adjustments)
+		
+		self.canvas = FigureCanvas(fig)
+		self.mpltools = NavigationToolbar(self.canvas,self.window)
+	
+		self.draw_frame = gtk.Frame(label = "Draw data")
+		self.draw_frame.add(self.draw_table)
+		
+		self.mime_tools = gtk.VBox()
+		
+		
+		self.mime_frame = gtk.Frame(label = "Mime settings")
+		self.mime_frame.add(self.mime_table)
+
+		self.side = gtk.VBox()
+		self.side.pack_start(self.draw_frame)
+		self.side.pack_start(self.mime_frame)
+
+		
+		self.side.pack_start(self.reset)
+
+		self.hbox = gtk.HBox()
+		self.hbox.pack_start(self.canvas)
+		self.hbox.pack_start(self.side,False,False,20)
+
+		self.lbox = gtk.VBox()
+		self.lbox.pack_start(self.hbox)
+		self.lbox.pack_start(self.mpltools,False,False)
+		
+		self.window.add(self.lbox)
+		self.window.show_all()
+		self.window.connect("destroy",self.destroy)
+	def main(self):
+		gtk.main()
+
+class data:
 	def __init__(self,name,color = 'blue'):
 		self.name = name
 		self.data = iterate(self.name)
@@ -37,16 +177,7 @@ class approach:
 		return self.average - self.sd * norm.ppf((1-persentage)/2)
 	def ciMax(self,persentage):
 		return self.average + self.sd * norm.ppf((1-persentage)/2)
-		
-	def summary(self):
-		print"------------",self.name,"------------"
-		print"Success rate:  %d/%d, %.2f" % (self.success[0],self.success[1],self.persentage)
-		print"Avrage value: ",self.average
-		print"Median:       ",self.median
-		print"Maximum value:",self.max
-		print"Variance:     ",self.var
-		print"St. deviation:",self.sd
-	
+
 class struct:
 	def __init__(self,name = options.input_file):
 		self.t = colIndex("time")
@@ -54,7 +185,7 @@ class struct:
 		self.d = colIndex("difficulty")
 		self.c = colIndex("category")
 		self.f = csv.reader(open(name,"r"),delimiter=',')
-
+		
 def largest():
 	if draw.max > mime.max:
 		return draw.max
@@ -82,44 +213,33 @@ def success(name):
 			if float(n[x.t]) != -1:
 				y[0] += 1
 	return y
-	
-def plotND(data):
-	x = np.linspace(options.min,largest(),500)
-	plot(x,mlab.normpdf(x,data.average,data.sd),label = data.name,color = data.color)
-	
-def plotCI(data,persentage = options.ci):
-	x = np.linspace(data.ciMin(persentage),data.ciMax(persentage),300)
-	fill_between(x,mlab.normpdf(x,data.average,data.sd),0,alpha = 0.1,color = data.color)
-	
-def showPlot(tex = False):
-	if tex == True:
-		rc('text', usetex=True)
-		rc('font', family='serif')
-		xlabel(r'\textbf{tid}')
-		ylabel(r'\texbf{sansynlighet}')
-	else:
-		xlabel('time')
-		ylabel('probability')
-		
-	legend(loc = 'upper right')
-	grid(True)
-	savefig("plot.pdf", dpi=100, facecolor='w', edgecolor='w',orientation='portrait', format="pdf",bbox_inches="tight",pad_inches=0.1)
-	show()
 
-def sdFunc(x,data):
-	return e**(-(x-data.avrage)**2 / 2 / data.sd**2) / data.sd / sqrt(2 * pi)
 
-draw = approach("draw",'green')
-mime = approach("mime",'blue')
+fig = Figure(figsize=(5,4), dpi = 100)
+plt = fig.add_subplot(111)
 
-if options.summary == True:
-	draw.summary()
-	mime.summary()
+draw = data("draw",'green')
+mime = data("mime",'blue')
+
+def plot_draw(x):
+	return mlab.normpdf(x,draw.average+base.avgDraw,draw.sd+base.sdDraw)
+def plot_mime(x):
+	return mlab.normpdf(x,mime.average+base.avgMime,mime.sd+base.sdMime)
+
+
+def make_plot():
+	plt.clear()
+	x = linspace(0,largest(),100)
+	y = plot_draw(x)
+	z = plot_mime(x)
+	plt.plot(x,y,x,z)
+	plt.grid(True)
+	fig.canvas.draw()
 	
+gobject.idle_add(make_plot)
+
+if __name__ == "__main__":
+	base = Base()
+	base.main()
 	
-if options.plot_flag == True:
-	plotND(draw)
-	plotND(mime)
-	plotCI(draw)
-	plotCI(mime)
-	showPlot(options.tex)
+
